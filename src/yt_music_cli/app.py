@@ -170,7 +170,7 @@ class YtMusicApp(App):
             await library_screen.on_library_update(event)
 
     async def _on_error(self, event: ErrorEvent) -> None:
-        self._status_msg(f"[{event.source}] {event.message}")
+        self._set_persistent_status(f"ERROR [{event.source}]: {event.message}")
 
     def _update_now_playing_bar(self, state) -> None:
         try:

@@ -1,3 +1,5 @@
+import asyncio
+
 from textual.widgets import Static, Input, ListView, ListItem, Label
 from textual.containers import Horizontal
 from textual.app import ComposeResult
@@ -20,6 +22,7 @@ class SearchScreen(Screen):
     def __init__(self, bus: MessageBus) -> None:
         super().__init__()
         self._bus = bus
+        self._debounce_timer: asyncio.Task | None = None
 
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Search YouTube Music...", id="search-input")
@@ -27,14 +30,21 @@ class SearchScreen(Screen):
         yield ListView(id="search-results")
 
     def on_input_changed(self, event: Input.Changed) -> None:
+        import asyncio
         query = event.value.strip()
-        if len(query) >= 2:
-            import asyncio
-            asyncio.create_task(self._bus.publish(SearchRequestEvent(query=query)))
-        else:
+        if len(query) < 2:
             list_view = self.query_one("#search-results", ListView)
             list_view.clear()
             self.query_one("#search-status", Static).update("Type at least 2 characters to search")
+            return
+        if self._debounce_timer and not self._debounce_timer.done():
+            self._debounce_timer.cancel()
+        self._debounce_timer = asyncio.create_task(self._debounced_search(query))
+
+    async def _debounced_search(self, query: str) -> None:
+        import asyncio
+        await asyncio.sleep(0.3)
+        await self._bus.publish(SearchRequestEvent(query=query))
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         if event.item is not None and hasattr(event.item, "track"):
