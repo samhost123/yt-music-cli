@@ -13,8 +13,8 @@ dependencies = [
     "python-mpv>=1.0.0",
 ]
 
-[project.scripts]
-yt-music-cli = "yt_music_cli.app:main"
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
 
 [tool.setuptools.package-dir]
 "" = "src"
