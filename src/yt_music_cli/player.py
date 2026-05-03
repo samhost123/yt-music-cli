@@ -91,19 +91,46 @@ class PlayerModule:
             except Exception:
                 pass
 
+    def set_stream_url(self, track_id: str, url: str) -> None:
+        self._stream_urls[track_id] = url
+
     def play(self) -> None:
         if not self._queue:
             return
         if not self._mpv:
             mpv_cls = _mpv_safe()
-            if mpv_cls:
-                self._mpv = mpv_cls()
+            if mpv_cls is None:
+                loop = asyncio.get_running_loop()
+                loop.create_task(self._bus.publish(ErrorEvent(
+                    source="player",
+                    message="mpv is not installed. Install it with: apt install mpv libmpv-dev",
+                )))
+                return
+            self._mpv = mpv_cls()
         self._play_current()
 
     def _play_current(self) -> None:
         track = self.current_track
-        if not track:
+        if not track or not self._mpv:
             return
+        url = self._stream_urls.get(track.id)
+        if not url:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._bus.publish(ErrorEvent(
+                source="player",
+                message=f"No stream URL loaded for '{track.title}'. Try again.",
+            )))
+            return
+        try:
+            self._mpv.play(url)
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._bus.publish(TrackChangedEvent(track=track)))
+        except Exception as e:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._bus.publish(ErrorEvent(
+                source="player",
+                message=f"Playback failed: {e}",
+            )))
 
     def _publish_queue_update(self) -> None:
         try:

@@ -139,6 +139,13 @@ class YtMusicApp(App):
         if event.track is None:
             return
         self._player.add_to_queue(event.track, source=event.context)
+
+        # Fetch stream URL from API
+        if self._api._ytmusic:
+            url = await self._api.get_stream_url(event.track.id)
+            if url:
+                self._player.set_stream_url(event.track.id, url)
+
         self._player.play()
 
     async def _on_track_changed(self, event: TrackChangedEvent) -> None:
