@@ -380,7 +380,7 @@ class NowPlayingScreen(Screen):
             return
         art = ""
         if self._track.thumbnail_url:
-            art = render_album_art(self._track.thumbnail_url, 40, 12)
+            art = render_album_art(self._track.thumbnail_url, 60, 20)
         self.query_one("#np-art", Static).update(art if art else "")
         self.query_one("#np-title", Static).update(f"  [bold]{self._track.title}[/bold]")
         self.query_one("#np-artist", Static).update(
