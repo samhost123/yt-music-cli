@@ -15,8 +15,11 @@ class MessageBus:
         self._handlers[event_type].append(handler)
 
     def unsubscribe(self, event_type: type, handler: Handler) -> None:
-        if handler in self._handlers[event_type]:
-            self._handlers[event_type].remove(handler)
+        handlers = self._handlers.get(event_type, [])
+        if handler in handlers:
+            handlers.remove(handler)
+        if not handlers:
+            self._handlers.pop(event_type, None)
 
     async def publish(self, event: Any) -> None:
         event_type = type(event)
