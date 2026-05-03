@@ -4,7 +4,6 @@ from textual.app import ComposeResult
 
 
 class HomeScreen(Screen):
-    BINDINGS = [("escape", "dismiss", "Back")]
 
     def compose(self) -> ComposeResult:
         yield Static("  Welcome to yt-music-cli", id="home-title")

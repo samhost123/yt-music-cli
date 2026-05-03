@@ -108,7 +108,14 @@ class APIClient:
             return
 
         try:
-            raw_results = self._ytmusic.search(event.query, filter=event.filter or None)
+            import asyncio
+            loop = asyncio.get_running_loop()
+            raw_results = await loop.run_in_executor(
+                None,
+                self._ytmusic.search,
+                event.query,
+                event.filter or None,
+            )
             tracks = []
             for item in raw_results:
                 if item.get("resultType") in ("song", "video"):

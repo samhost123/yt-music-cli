@@ -134,6 +134,7 @@ class YtMusicApp(App):
         self._screens["queue"] = QueueScreen(self._bus)
         self._screens["now_playing"] = NowPlayingScreen()
 
+        await self.push_screen(self._screens["search"])
         await self.push_screen(self._screens["home"])
 
         await self._auth.initialize()
