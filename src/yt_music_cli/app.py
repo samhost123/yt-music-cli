@@ -6,6 +6,7 @@ from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
+from textual.widgets import Input
 
 from yt_music_cli.bus import MessageBus
 from yt_music_cli.config import AUTH_FILE, ensure_dirs, ERROR_LOG
@@ -77,6 +78,7 @@ class YtMusicApp(App):
 
     BINDINGS = [
         (Keys.QUIT, "quit_app", "Quit"),
+        (Keys.SEARCH, "focus_search", "Search"),
         (Keys.PLAY_PAUSE, "play_pause", "Play/Pause"),
         (Keys.NEXT, "next_track", "Next"),
         (Keys.PREV, "prev_track", "Previous"),
@@ -289,6 +291,17 @@ class YtMusicApp(App):
 
     async def action_view_search(self) -> None:
         await self._switch_screen("search")
+
+    async def action_focus_search(self) -> None:
+        await self._switch_screen("search")
+        try:
+            search_screen = self._screens.get("search")
+            if search_screen and search_screen.is_mounted:
+                inp = search_screen.query_one("#search-input", Input)
+                inp.focus()
+                inp.clear()
+        except Exception:
+            pass
 
     async def action_view_library(self) -> None:
         await self._switch_screen("library")
