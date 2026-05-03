@@ -1,6 +1,9 @@
+import asyncio
 import logging
 from collections import defaultdict
 from typing import Any, Callable, Awaitable
+
+from yt_music_cli.events import ErrorEvent
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +34,17 @@ class MessageBus:
         for handler in list(handlers):
             try:
                 await handler(event)
-            except Exception:
+            except Exception as e:
                 logger.exception(
-                    "Handler %s raised exception for event %s",
+                    "Handler %s raised for event %s",
                     handler.__name__,
                     event_type.__name__,
                 )
+                # Publish error to any error handlers (skip if we're already handling an error)
+                if not isinstance(event, ErrorEvent):
+                    error_handlers = self._handlers.get(ErrorEvent, [])
+                    for eh in error_handlers:
+                        await eh(ErrorEvent(
+                            source=event_type.__name__,
+                            message=str(e)[:120],
+                        ))

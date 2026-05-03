@@ -137,7 +137,6 @@ class YtMusicApp(App):
             return
         self._player.add_to_queue(event.track, source=event.context)
         self._player.play()
-        self._status_msg(f"Queued: {event.track.title}")
 
     async def _on_track_changed(self, event: TrackChangedEvent) -> None:
         state = self._player.get_state()
