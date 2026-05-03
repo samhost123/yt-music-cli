@@ -2,7 +2,7 @@ from io import BytesIO
 from PIL import Image
 import requests
 
-ASCII_CHARS = " .:-=+*#%@"
+ASCII_CHARS = " .'`^,:;Il!i><~+_-?][}{1)(|/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$"
 CACHE: dict[str, str] = {}
 
 _COLOR_STOPS = [
@@ -27,7 +27,7 @@ def _pixel_tag(brightness: int) -> str:
     return "[#ffffff]"
 
 
-def render_album_art(thumbnail_url: str, width: int = 60, height: int = 20) -> str:
+def render_album_art(thumbnail_url: str, width: int = 80, height: int = 40) -> str:
     if not thumbnail_url:
         return ""
     if thumbnail_url in CACHE:

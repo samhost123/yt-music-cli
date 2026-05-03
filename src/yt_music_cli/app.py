@@ -64,7 +64,7 @@ class YtMusicApp(App):
     .tab { width: auto; padding: 0 2; }
     #playlist-list { width: 30%; }
     #playlist-tracks { width: 70%; }
-    #np-art { content-align: center middle; height: 13; }
+    #np-art { content-align: center middle; height: 40; }
     #np-title { content-align: center middle; height: 3; }
     #np-artist { content-align: center middle; height: 2; }
     #np-progress { content-align: center middle; height: 3; }
@@ -170,6 +170,8 @@ class YtMusicApp(App):
         except Exception:
             pass
         self._status_msg(f"Now playing: {event.track.title}")
+        if event.track.thumbnail_url:
+            asyncio.create_task(self._preload_art(event.track.thumbnail_url))
 
     async def _on_playback_state(self, event: PlaybackStateEvent) -> None:
         state = PlaybackState(
@@ -216,6 +218,12 @@ class YtMusicApp(App):
         url = f"https://music.youtube.com/watch?v={event.track_id}"
         self._player.set_stream_url(event.track_id, url)
         self._player.play()
+
+    async def _preload_art(self, url: str) -> None:
+        from yt_music_cli.ui.art import render_album_art
+        import asyncio
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, render_album_art, url, 80, 40)
 
     def _update_now_playing_bar(self, state) -> None:
         try:

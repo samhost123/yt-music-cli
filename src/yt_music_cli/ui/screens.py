@@ -18,7 +18,13 @@ from yt_music_cli.ui.art import render_album_art
 
 
 class SearchScreen(Screen):
-    BINDINGS = [("escape", "dismiss", "Back")]
+    BINDINGS = [
+        ("escape", "dismiss", "Back"),
+        ("j", "cursor_down", "Down"),
+        ("k", "cursor_up", "Up"),
+        ("g", "cursor_top", "Top"),
+        ("G", "cursor_bottom", "Bottom"),
+    ]
 
     def __init__(self, bus: MessageBus) -> None:
         super().__init__()
@@ -65,12 +71,37 @@ class SearchScreen(Screen):
             list_view.append(item)
 
 
+    def action_cursor_down(self) -> None:
+        list_view = self.query_one("#search-results", ListView)
+        if list_view.children and list_view.index is not None:
+            list_view.index = min(list_view.index + 1, len(list_view.children) - 1)
+
+    def action_cursor_up(self) -> None:
+        list_view = self.query_one("#search-results", ListView)
+        if list_view.children and list_view.index is not None:
+            list_view.index = max(list_view.index - 1, 0)
+
+    def action_cursor_top(self) -> None:
+        list_view = self.query_one("#search-results", ListView)
+        if list_view.children:
+            list_view.index = 0
+
+    def action_cursor_bottom(self) -> None:
+        list_view = self.query_one("#search-results", ListView)
+        if list_view.children:
+            list_view.index = len(list_view.children) - 1
+
+
 class LibraryScreen(Screen):
     BINDINGS = [
         ("escape", "dismiss", "Back"),
         ("1", "tab_songs", "Songs"),
         ("2", "tab_albums", "Albums"),
         ("3", "tab_playlists", "Playlists"),
+        ("j", "cursor_down", "Down"),
+        ("k", "cursor_up", "Up"),
+        ("g", "cursor_top", "Top"),
+        ("G", "cursor_bottom", "Bottom"),
     ]
 
     def __init__(self, bus: MessageBus, api: object) -> None:
@@ -396,7 +427,7 @@ class NowPlayingScreen(Screen):
             return
         art = ""
         if self._track.thumbnail_url:
-            art = render_album_art(self._track.thumbnail_url, 60, 20)
+            art = render_album_art(self._track.thumbnail_url, 80, 40)
         self.query_one("#np-art", Static).update(art if art else "")
         self.query_one("#np-title", Static).update(f"  [bold]{self._track.title}[/bold]")
         self.query_one("#np-artist", Static).update(
