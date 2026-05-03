@@ -264,8 +264,9 @@ def main() -> None:
         print("2. Open DevTools (F12) → Network tab")
         print("3. Search for something or browse a playlist (to trigger API calls)")
         print("4. In the Network tab, find a request to 'youtubei/v1/browse' or 'youtubei/v1/search'")
-        print("5. Right-click that request → Copy → Copy as cURL (bash)")
-        print("6. Paste the copied text below:\n")
+        print("5. Right-click that request → Copy → Copy Request Headers")
+        print("   (NOT 'Copy as cURL' — use 'Copy Request Headers')")
+        print("6. Paste the headers below:\n")
         from yt_music_cli.config import AUTH_FILE, ensure_dirs
         ensure_dirs()
         from ytmusicapi.setup import setup as ytm_setup
