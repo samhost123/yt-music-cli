@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yt-music-cli"
+version = "0.1.0"
+description = "Terminal-based YouTube Music client"
+requires-python = ">=3.11"
+dependencies = [
+    "textual>=0.50.0",
+    "ytmusicapi>=1.7.0",
+    "python-mpv>=1.0.0",
+]
+
+[project.scripts]
+yt-music-cli = "yt_music_cli.app:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
