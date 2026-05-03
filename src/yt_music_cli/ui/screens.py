@@ -30,6 +30,7 @@ class SearchScreen(Screen):
         super().__init__()
         self._bus = bus
         self._debounce_timer: asyncio.Task | None = None
+        self._searching = False
 
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Search YouTube Music...", id="search-input")
@@ -51,6 +52,9 @@ class SearchScreen(Screen):
     async def _debounced_search(self, query: str) -> None:
         import asyncio
         await asyncio.sleep(0.3)
+        self._searching = True
+        if self.is_mounted:
+            self.query_one("#search-status", Static).update(f"  Searching for '{query}'...")
         await self._bus.publish(SearchRequestEvent(query=query))
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
@@ -58,6 +62,7 @@ class SearchScreen(Screen):
             await self._bus.publish(PlayRequestEvent(track=event.item.track, context="search"))
 
     async def show_results(self, event: SearchResultsEvent) -> None:
+        self._searching = False
         list_view = self.query_one("#search-results", ListView)
         list_view.clear()
         if not event.results:
@@ -216,9 +221,35 @@ class LibraryScreen(Screen):
             elif hasattr(event.item, "playlist"):
                 pass  # Could navigate to playlist in future
 
+    def action_cursor_down(self) -> None:
+        list_view = self.query_one("#library-list", ListView)
+        if list_view.children and list_view.index is not None:
+            list_view.index = min(list_view.index + 1, len(list_view.children) - 1)
+
+    def action_cursor_up(self) -> None:
+        list_view = self.query_one("#library-list", ListView)
+        if list_view.children and list_view.index is not None:
+            list_view.index = max(list_view.index - 1, 0)
+
+    def action_cursor_top(self) -> None:
+        list_view = self.query_one("#library-list", ListView)
+        if list_view.children:
+            list_view.index = 0
+
+    def action_cursor_bottom(self) -> None:
+        list_view = self.query_one("#library-list", ListView)
+        if list_view.children:
+            list_view.index = len(list_view.children) - 1
+
 
 class PlaylistScreen(Screen):
-    BINDINGS = [("escape", "dismiss", "Back")]
+    BINDINGS = [
+        ("escape", "dismiss", "Back"),
+        ("j", "cursor_down", "Down"),
+        ("k", "cursor_up", "Up"),
+        ("g", "cursor_top", "Top"),
+        ("G", "cursor_bottom", "Bottom"),
+    ]
 
     def __init__(self, bus: MessageBus, api: object) -> None:
         super().__init__()
@@ -306,11 +337,41 @@ class PlaylistScreen(Screen):
             if event.item is not None and hasattr(event.item, "track"):
                 await self._bus.publish(PlayRequestEvent(track=event.item.track, context="playlist"))
 
+    def _active_list(self) -> ListView:
+        focused = self.focused
+        if focused is not None and isinstance(focused, ListView):
+            return focused
+        return self.query_one("#playlist-list", ListView)
+
+    def action_cursor_down(self) -> None:
+        list_view = self._active_list()
+        if list_view.children and list_view.index is not None:
+            list_view.index = min(list_view.index + 1, len(list_view.children) - 1)
+
+    def action_cursor_up(self) -> None:
+        list_view = self._active_list()
+        if list_view.children and list_view.index is not None:
+            list_view.index = max(list_view.index - 1, 0)
+
+    def action_cursor_top(self) -> None:
+        list_view = self._active_list()
+        if list_view.children:
+            list_view.index = 0
+
+    def action_cursor_bottom(self) -> None:
+        list_view = self._active_list()
+        if list_view.children:
+            list_view.index = len(list_view.children) - 1
+
 
 class QueueScreen(Screen):
     BINDINGS = [
         ("escape", "dismiss", "Back"),
         ("d", "remove_selected", "Remove"),
+        ("j", "cursor_down", "Down"),
+        ("k", "cursor_up", "Up"),
+        ("g", "cursor_top", "Top"),
+        ("G", "cursor_bottom", "Bottom"),
     ]
 
     def __init__(self, bus: MessageBus) -> None:
@@ -341,6 +402,26 @@ class QueueScreen(Screen):
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
         if event.item is not None and hasattr(event.item, "track_index"):
             pass  # handled by app-level keybindings
+
+    def action_cursor_down(self) -> None:
+        list_view = self.query_one("#queue-list", ListView)
+        if list_view.children and list_view.index is not None:
+            list_view.index = min(list_view.index + 1, len(list_view.children) - 1)
+
+    def action_cursor_up(self) -> None:
+        list_view = self.query_one("#queue-list", ListView)
+        if list_view.children and list_view.index is not None:
+            list_view.index = max(list_view.index - 1, 0)
+
+    def action_cursor_top(self) -> None:
+        list_view = self.query_one("#queue-list", ListView)
+        if list_view.children:
+            list_view.index = 0
+
+    def action_cursor_bottom(self) -> None:
+        list_view = self.query_one("#queue-list", ListView)
+        if list_view.children:
+            list_view.index = len(list_view.children) - 1
 
 
 class HelpScreen(Screen):
@@ -382,10 +463,13 @@ class NowPlayingScreen(Screen):
 
     def compose(self) -> ComposeResult:
         yield Static("", id="np-art")
+        yield Static(SEP, id="np-sep1")
         yield Static("No track playing", id="np-title")
         yield Static("", id="np-artist")
+        yield Static(SEP, id="np-sep2")
         yield Static("", id="np-progress")
         yield Static("", id="np-flags")
+        yield Static(SEP, id="np-sep3")
         yield Static("", id="np-volume")
         yield Static("", id="np-controls")
 
@@ -427,9 +511,10 @@ class NowPlayingScreen(Screen):
             return
         art = ""
         if self._track.thumbnail_url:
-            art = render_album_art(self._track.thumbnail_url, 80, 40)
-        self.query_one("#np-art", Static).update(art if art else "")
-        self.query_one("#np-title", Static).update(f"  [bold]{self._track.title}[/bold]")
+            art = render_album_art(self._track.thumbnail_url, 60, 20)
+        bordered_art = _border_art(art) if art else ""
+        self.query_one("#np-art", Static).update(bordered_art)
+        self.query_one("#np-title", Static).update(f"  [bold white]{self._track.title}[/bold white]")
         self.query_one("#np-artist", Static).update(
             f"  {self._track.artist_string}" + (f"  —  {self._track.album}" if self._track.album else "")
         )
@@ -470,3 +555,16 @@ class NowPlayingScreen(Screen):
         m = int(seconds) // 60
         s = int(seconds) % 60
         return f"{m}:{s:02d}"
+
+
+def _border_art(art: str, width: int = 60) -> str:
+    lines = art.split("\n")
+    top = "\u250c" + "\u2500" * width + "\u2510"
+    bottom = "\u2514" + "\u2500" * width + "\u2518"
+    bordered = [top]
+    for line in lines:
+        bordered.append("\u2502" + line + "\u2502")
+    bordered.append(bottom)
+    return "\n".join(bordered)
+
+SEP = "  " + "\u2500" * 50

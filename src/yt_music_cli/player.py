@@ -117,6 +117,7 @@ class PlayerModule:
                 self._mpv.volume = max(0, min(100, volume))
             except Exception:
                 pass
+        self._publish_state()
 
     def seek(self, position_s: float) -> None:
         if self._mpv:
@@ -185,10 +186,12 @@ class PlayerModule:
                     else:
                         self._current_index = 0
         self._publish_queue_update()
+        self._publish_state()
 
     def toggle_repeat(self) -> None:
         idx = REPEAT_MODES.index(self._repeat)
         self._repeat = REPEAT_MODES[(idx + 1) % 3]
+        self._publish_state()
 
     def _play_current(self) -> None:
         track = self.current_track
@@ -263,6 +266,17 @@ class PlayerModule:
             except Exception:
                 pass
             await asyncio.sleep(0.5)
+
+    def _publish_state(self) -> None:
+        state = self.get_state()
+        self._publish_event(PlaybackStateEvent(
+            is_playing=state.is_playing,
+            position_s=state.position_s,
+            duration_s=state.duration_s,
+            volume=state.volume,
+            shuffle=state.shuffle,
+            repeat=state.repeat,
+        ))
 
     def _publish_queue_update(self) -> None:
         self._publish_event(QueueUpdatedEvent(

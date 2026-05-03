@@ -35,6 +35,7 @@ from yt_music_cli.ui.screens import (
     NowPlayingScreen,
     HelpScreen,
 )
+from yt_music_cli.ui.home import HomeScreen
 from yt_music_cli.ui.keys import Keys
 
 logger = logging.getLogger(__name__)
@@ -42,18 +43,14 @@ logger = logging.getLogger(__name__)
 
 class YtMusicApp(App):
     CSS = """
-    Screen { layout: vertical; }
+    Screen { layout: vertical; background: #1a1a2e; }
     #now-playing-bar {
-        dock: bottom; height: 3; background: $panel;
+        dock: bottom; height: 3; background: #16213e;
         color: $text; padding: 0 1;
     }
     #status-bar {
-        dock: bottom; height: 1; background: $panel;
-        color: $text;
-    }
-    #footer {
-        dock: bottom; height: 1; background: $boost;
-        color: $text-disabled;
+        dock: bottom; height: 1; background: #0f3460;
+        color: #a0a0c0;
     }
     #search-input { dock: top; margin: 1 2; }
     #search-status, #library-status, #queue-status, #playlist-status {
@@ -64,14 +61,18 @@ class YtMusicApp(App):
     .tab { width: auto; padding: 0 2; }
     #playlist-list { width: 30%; }
     #playlist-tracks { width: 70%; }
-    #np-art { content-align: center middle; height: 40; }
-    #np-title { content-align: center middle; height: 3; }
+    #np-art { content-align: center middle; height: 22; }
+    #np-title { content-align: center middle; height: 2; }
     #np-artist { content-align: center middle; height: 2; }
+    #np-sep1, #np-sep2, #np-sep3 { height: 1; color: $text-disabled; content-align: center middle; }
     #np-progress { content-align: center middle; height: 3; }
     #np-flags { content-align: center middle; height: 2; color: $warning; }
     #np-volume { content-align: center middle; height: 2; }
     #np-controls { content-align: center middle; height: 2; color: $text-disabled; }
     #help-text { padding: 2 4; }
+    #home-title { content-align: center middle; height: 3; text-style: bold; }
+    #home-subtitle { content-align: center middle; height: 2; color: $text-disabled; }
+    #home-quick { content-align: center middle; height: 1; }
     """
 
     BINDINGS = [
@@ -81,6 +82,8 @@ class YtMusicApp(App):
         (Keys.PREV, "prev_track", "Previous"),
         (Keys.SEEK_FWD, "seek_fwd", "Seek +"),
         (Keys.SEEK_BACK, "seek_back", "Seek -"),
+        (Keys.SEEK_FWD_ALT, "seek_fwd", "Seek +"),
+        (Keys.SEEK_BACK_ALT, "seek_back", "Seek -"),
         (Keys.VOL_UP, "vol_up", "Vol +"),
         (Keys.VOL_DOWN, "vol_down", "Vol -"),
         (Keys.SHUFFLE, "toggle_shuffle", "Shuffle"),
@@ -122,13 +125,14 @@ class YtMusicApp(App):
     async def on_mount(self) -> None:
         ensure_dirs()
 
+        self._screens["home"] = HomeScreen()
         self._screens["search"] = SearchScreen(self._bus)
         self._screens["library"] = LibraryScreen(self._bus, self._api)
         self._screens["playlists"] = PlaylistScreen(self._bus, self._api)
         self._screens["queue"] = QueueScreen(self._bus)
         self._screens["now_playing"] = NowPlayingScreen()
 
-        await self.push_screen(self._screens["search"])
+        await self.push_screen(self._screens["home"])
 
         await self._auth.initialize()
 
@@ -153,11 +157,11 @@ class YtMusicApp(App):
             return
         self._player.add_to_queue(event.track, source=event.context)
 
-        # Pass the YouTube video URL directly — mpv + yt-dlp handle the rest
         url = f"https://music.youtube.com/watch?v={event.track.id}"
         self._player.set_stream_url(event.track.id, url)
 
         self._player.play()
+        self.notify(f"Queued: {event.track.title}", timeout=2)
 
     async def _on_track_changed(self, event: TrackChangedEvent) -> None:
         state = self._player.get_state()
@@ -169,6 +173,7 @@ class YtMusicApp(App):
                                        state.volume, state.shuffle, state.repeat)
         except Exception:
             pass
+        self.title = f"yt-music-cli — {event.track.title}"
         self._status_msg(f"Now playing: {event.track.title}")
         if event.track.thumbnail_url:
             asyncio.create_task(self._preload_art(event.track.thumbnail_url))
@@ -263,18 +268,24 @@ class YtMusicApp(App):
 
     def action_vol_up(self) -> None:
         state = self._player.get_state()
-        self._player.set_volume(state.volume + 5)
+        new_vol = min(state.volume + 5, 100)
+        self._player.set_volume(new_vol)
+        self.notify(f"Volume: {new_vol}%", timeout=1.5)
 
     def action_vol_down(self) -> None:
         state = self._player.get_state()
-        self._player.set_volume(state.volume - 5)
+        new_vol = max(state.volume - 5, 0)
+        self._player.set_volume(new_vol)
+        self.notify(f"Volume: {new_vol}%", timeout=1.5)
 
     def action_toggle_shuffle(self) -> None:
         self._player.toggle_shuffle()
+        self.notify(f"Shuffle: {'on' if self._player.shuffle else 'off'}", timeout=1.5)
         self._status_msg(f"Shuffle: {'on' if self._player.shuffle else 'off'}")
 
     def action_toggle_repeat(self) -> None:
         self._player.toggle_repeat()
+        self.notify(f"Repeat: {self._player.repeat}", timeout=1.5)
         self._status_msg(f"Repeat: {self._player.repeat}")
 
     async def action_view_search(self) -> None:

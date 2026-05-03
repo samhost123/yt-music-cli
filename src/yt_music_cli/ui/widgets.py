@@ -63,9 +63,11 @@ class NowPlayingBar(Static):
         elif self._repeat == "all":
             flags += " \U0001f501"
 
-        vol_str = f" Vol:{self._volume}%"
+        vol_filled = int(self._volume / 100 * 10)
+        vol_bar = "\U0001f50a[" + "=" * vol_filled + "\u25cf" + "-" * (10 - vol_filled) + "]"
+        vol_str = f"{vol_bar} {self._volume}%"
 
-        return f"  {play_icon} {title} \u2014 {artist}  {bar} {pos_str} / {dur_str}{flags}{vol_str}"
+        return f"  {play_icon} {title} \u2014 {artist}  {bar} {pos_str} / {dur_str}{flags} {vol_str}"
 
     @staticmethod
     def _format_time(seconds: float) -> str:
