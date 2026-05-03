@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from typing import Optional
 
 from yt_music_cli.bus import MessageBus
@@ -7,11 +8,14 @@ from yt_music_cli.events import (
     TrackChangedEvent,
     PlaybackStateEvent,
     QueueUpdatedEvent,
+    NeedStreamUrlEvent,
     ErrorEvent,
 )
 from yt_music_cli.models import Track, QueueItem, PlaybackState
 
 logger = logging.getLogger(__name__)
+
+REPEAT_MODES = ("off", "one", "all")
 
 
 def _mpv_safe() -> object | None:
@@ -33,6 +37,9 @@ class PlayerModule:
         self._repeat: str = "off"
         self._lock = asyncio.Lock()
         self._progress_task: asyncio.Task | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._auto_advance: bool = False
+        self._unshuffled_queue: list[QueueItem] | None = None
 
     @property
     def queue(self) -> list[QueueItem]:
@@ -44,19 +51,42 @@ class PlayerModule:
             return self._queue[self._current_index].track
         return None
 
+    @property
+    def shuffle(self) -> bool:
+        return self._shuffle
+
+    @property
+    def repeat(self) -> str:
+        return self._repeat
+
     def add_to_queue(self, track: Track, source: str = "") -> None:
-        self._queue.append(QueueItem(track=track, source=source))
+        item = QueueItem(track=track, source=source)
+        if self._shuffle and self._unshuffled_queue is not None:
+            self._unshuffled_queue.append(item)
+            if len(self._queue) <= 1:
+                self._queue.append(item)
+            else:
+                pos = random.randint(1, len(self._queue))
+                self._queue.insert(pos, item)
+        else:
+            self._queue.append(item)
         self._publish_queue_update()
 
     def remove_from_queue(self, index: int) -> None:
         if 0 <= index < len(self._queue):
-            self._queue.pop(index)
+            removed = self._queue.pop(index)
+            if self._unshuffled_queue is not None:
+                try:
+                    self._unshuffled_queue.remove(removed)
+                except ValueError:
+                    pass
             if self._current_index >= len(self._queue):
                 self._current_index = max(0, len(self._queue) - 1)
             self._publish_queue_update()
 
     def clear_queue(self) -> None:
         self._queue.clear()
+        self._unshuffled_queue = None
         self._current_index = 0
         self._publish_queue_update()
 
@@ -70,12 +100,14 @@ class PlayerModule:
     def next_track(self) -> None:
         if not self._queue:
             return
+        self._auto_advance = False
         self._current_index = (self._current_index + 1) % len(self._queue)
         self._play_current()
 
     def prev_track(self) -> None:
         if not self._queue:
             return
+        self._auto_advance = False
         self._current_index = (self._current_index - 1) % len(self._queue)
         self._play_current()
 
@@ -105,7 +137,58 @@ class PlayerModule:
                 self._publish_error("mpv is not installed. Install it with: apt install mpv libmpv-dev")
                 return
             self._mpv = mpv_cls(ytdl=True, video=False)
+            try:
+                self._loop = asyncio.get_running_loop()
+                self._mpv.observe_property("eof-reached", self._on_eof_reached)
+            except Exception:
+                self._loop = None
         self._play_current()
+
+    def stop(self) -> None:
+        self._auto_advance = False
+        if self._mpv:
+            try:
+                self._mpv.command("stop")
+            except Exception:
+                pass
+        if self._progress_task and not self._progress_task.done():
+            self._progress_task.cancel()
+            self._progress_task = None
+        self._publish_event(PlaybackStateEvent(
+            is_playing=False,
+            position_s=0.0,
+            duration_s=0.0,
+            volume=self._mpv.volume if self._mpv else 100,
+            shuffle=self._shuffle,
+            repeat=self._repeat,
+        ))
+
+    def toggle_shuffle(self) -> None:
+        self._shuffle = not self._shuffle
+        if self._shuffle:
+            self._unshuffled_queue = list(self._queue)
+            if 0 <= self._current_index < len(self._queue):
+                current = self._queue.pop(self._current_index)
+                self._queue.insert(0, current)
+            random.shuffle(self._queue[1:])
+            self._current_index = 0
+        else:
+            if self._unshuffled_queue is not None:
+                current_track_id = self.current_track.id if self.current_track else None
+                self._queue = list(self._unshuffled_queue)
+                self._unshuffled_queue = None
+                if current_track_id:
+                    for i, item in enumerate(self._queue):
+                        if item.track.id == current_track_id:
+                            self._current_index = i
+                            break
+                    else:
+                        self._current_index = 0
+        self._publish_queue_update()
+
+    def toggle_repeat(self) -> None:
+        idx = REPEAT_MODES.index(self._repeat)
+        self._repeat = REPEAT_MODES[(idx + 1) % 3]
 
     def _play_current(self) -> None:
         track = self.current_track
@@ -113,14 +196,47 @@ class PlayerModule:
             return
         url = self._stream_urls.get(track.id)
         if not url:
-            self._publish_error(f"No stream URL loaded for '{track.title}'. Try again.")
+            self._publish_event(NeedStreamUrlEvent(track_id=track.id))
             return
         try:
             self._mpv.play(url)
+            self._auto_advance = True
             self._start_progress_reporting()
             self._publish_event(TrackChangedEvent(track=track))
         except Exception as e:
             self._publish_error(f"Playback failed: {e}")
+
+    def _on_eof_reached(self, name: str, value: bool) -> None:
+        if value and self._auto_advance:
+            self._auto_advance = False
+            if self._loop:
+                self._loop.call_soon_threadsafe(self._handle_track_end)
+
+    def _handle_track_end(self) -> None:
+        if not self._queue:
+            return
+        if self._repeat == "one":
+            track = self.current_track
+            if not track or not self._mpv:
+                return
+            url = self._stream_urls.get(track.id)
+            if not url:
+                self._publish_event(NeedStreamUrlEvent(track_id=track.id))
+                return
+            try:
+                self._mpv.play(url)
+                self._auto_advance = True
+            except Exception as e:
+                self._publish_error(f"Replay failed: {e}")
+        elif self._repeat == "all":
+            self._current_index = (self._current_index + 1) % len(self._queue)
+            self._play_current()
+        else:
+            if self._current_index + 1 < len(self._queue):
+                self._current_index += 1
+                self._play_current()
+            else:
+                self.stop()
 
     def _start_progress_reporting(self) -> None:
         if self._progress_task and not self._progress_task.done():

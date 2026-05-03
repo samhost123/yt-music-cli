@@ -11,6 +11,7 @@ class NowPlayingBar(Static):
         self._is_playing: bool = False
         self._position_s: float = 0.0
         self._duration_s: float = 0.0
+        self._volume: int = 100
         self._shuffle: bool = False
         self._repeat: str = "off"
 
@@ -19,6 +20,7 @@ class NowPlayingBar(Static):
         self._is_playing = state.is_playing
         self._position_s = state.position_s
         self._duration_s = state.duration_s
+        self._volume = state.volume
         self._shuffle = state.shuffle
         self._repeat = state.repeat
         self.refresh()
@@ -49,7 +51,9 @@ class NowPlayingBar(Static):
         elif self._repeat == "all":
             flags += " \U0001f501"
 
-        return f"  {play_icon} {title} \u2014 {artist}  {bar} {pos_str} / {dur_str}{flags}"
+        vol_str = f" Vol:{self._volume}%"
+
+        return f"  {play_icon} {title} \u2014 {artist}  {bar} {pos_str} / {dur_str}{flags}{vol_str}"
 
     @staticmethod
     def _format_time(seconds: float) -> str:

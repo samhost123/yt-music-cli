@@ -67,6 +67,12 @@ class LibraryUpdateEvent:
 
 
 @dataclass
+class NeedStreamUrlEvent:
+    track_id: str
+    type: str = field(default="need_stream_url", init=False)
+
+
+@dataclass
 class ErrorEvent:
     source: str
     message: str
@@ -84,5 +90,6 @@ Event = (
     | PlaybackStateEvent
     | QueueUpdatedEvent
     | LibraryUpdateEvent
+    | NeedStreamUrlEvent
     | ErrorEvent
 )

@@ -24,6 +24,7 @@ from yt_music_cli.events import (
     LibraryUpdateEvent,
     ErrorEvent,
     PlayRequestEvent,
+    NeedStreamUrlEvent,
 )
 from yt_music_cli.ui.widgets import NowPlayingBar, StatusBar
 from yt_music_cli.ui.screens import (
@@ -98,6 +99,7 @@ class YtMusicApp(App):
         self._bus.subscribe(QueueUpdatedEvent, self._on_queue_updated)
         self._bus.subscribe(LibraryUpdateEvent, self._on_library_update)
         self._bus.subscribe(ErrorEvent, self._on_error)
+        self._bus.subscribe(NeedStreamUrlEvent, self._on_need_stream_url)
 
         self._screens: dict[str, Screen] = {}
 
@@ -188,6 +190,11 @@ class YtMusicApp(App):
     async def _on_error(self, event: ErrorEvent) -> None:
         self._set_persistent_status(f"ERROR [{event.source}]: {event.message}")
 
+    async def _on_need_stream_url(self, event: NeedStreamUrlEvent) -> None:
+        url = f"https://music.youtube.com/watch?v={event.track_id}"
+        self._player.set_stream_url(event.track_id, url)
+        self._player.play()
+
     def _update_now_playing_bar(self, state) -> None:
         try:
             bar = self.query_one("#now-playing-bar", NowPlayingBar)
@@ -233,14 +240,12 @@ class YtMusicApp(App):
         self._player.set_volume(state.volume - 5)
 
     def action_toggle_shuffle(self) -> None:
-        self._player._shuffle = not self._player._shuffle
-        self._status_msg(f"Shuffle: {'on' if self._player._shuffle else 'off'}")
+        self._player.toggle_shuffle()
+        self._status_msg(f"Shuffle: {'on' if self._player.shuffle else 'off'}")
 
     def action_toggle_repeat(self) -> None:
-        modes = ["off", "one", "all"]
-        idx = modes.index(self._player._repeat)
-        self._player._repeat = modes[(idx + 1) % 3]
-        self._status_msg(f"Repeat: {self._player._repeat}")
+        self._player.toggle_repeat()
+        self._status_msg(f"Repeat: {self._player.repeat}")
 
     def action_view_search(self) -> None:
         self._switch_screen("search")

@@ -8,6 +8,7 @@ from yt_music_cli.events import (
     PlaybackStateEvent,
     QueueUpdatedEvent,
     LibraryUpdateEvent,
+    NeedStreamUrlEvent,
     ErrorEvent,
 )
 from yt_music_cli.models import Track
@@ -77,6 +78,12 @@ def test_library_update_event():
     evt = LibraryUpdateEvent(category="tracks", items=[])
     assert evt.type == "library_update"
     assert evt.category == "tracks"
+
+
+def test_need_stream_url_event():
+    evt = NeedStreamUrlEvent(track_id="abc123")
+    assert evt.type == "need_stream_url"
+    assert evt.track_id == "abc123"
 
 
 def test_error_event():
