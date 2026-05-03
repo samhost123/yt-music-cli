@@ -128,9 +128,12 @@ class YtMusicApp(App):
         self._set_persistent_status("Not authenticated — run 'yt-music-cli --setup' in terminal first")
 
     async def _on_search_results(self, event: SearchResultsEvent) -> None:
-        search_screen = self._screens.get("search")
-        if search_screen and hasattr(search_screen, "show_results"):
-            await search_screen.show_results(event)
+        try:
+            search_screen = self._screens.get("search")
+            if search_screen and search_screen.is_mounted:
+                await search_screen.show_results(event)
+        except Exception:
+            pass
 
     async def _on_play_request(self, event: PlayRequestEvent) -> None:
         if event.track is None:
@@ -141,9 +144,12 @@ class YtMusicApp(App):
     async def _on_track_changed(self, event: TrackChangedEvent) -> None:
         state = self._player.get_state()
         self._update_now_playing_bar(state)
-        np_screen = self._screens.get("now_playing")
-        if np_screen and hasattr(np_screen, "update_track"):
-            np_screen.update_track(event.track, state.is_playing, state.position_s, state.duration_s)
+        try:
+            np_screen = self._screens.get("now_playing")
+            if np_screen and np_screen.is_mounted:
+                np_screen.update_track(event.track, state.is_playing, state.position_s, state.duration_s)
+        except Exception:
+            pass
         self._status_msg(f"Now playing: {event.track.title}")
 
     async def _on_playback_state(self, event: PlaybackStateEvent) -> None:
@@ -159,14 +165,20 @@ class YtMusicApp(App):
         self._update_now_playing_bar(state)
 
     async def _on_queue_updated(self, event: QueueUpdatedEvent) -> None:
-        queue_screen = self._screens.get("queue")
-        if queue_screen and hasattr(queue_screen, "on_queue_updated"):
-            await queue_screen.on_queue_updated(event)
+        try:
+            queue_screen = self._screens.get("queue")
+            if queue_screen and queue_screen.is_mounted:
+                await queue_screen.on_queue_updated(event)
+        except Exception:
+            pass
 
     async def _on_library_update(self, event: LibraryUpdateEvent) -> None:
-        library_screen = self._screens.get("library")
-        if library_screen and hasattr(library_screen, "on_library_update"):
-            await library_screen.on_library_update(event)
+        try:
+            library_screen = self._screens.get("library")
+            if library_screen and library_screen.is_mounted:
+                await library_screen.on_library_update(event)
+        except Exception:
+            pass
 
     async def _on_error(self, event: ErrorEvent) -> None:
         self._set_persistent_status(f"ERROR [{event.source}]: {event.message}")
