@@ -26,7 +26,7 @@ from yt_music_cli.events import (
     PlayRequestEvent,
     NeedStreamUrlEvent,
 )
-from yt_music_cli.ui.widgets import NowPlayingBar, StatusBar
+from yt_music_cli.ui.widgets import NowPlayingBar, StatusBar, Footer
 from yt_music_cli.ui.screens import (
     SearchScreen,
     LibraryScreen,
@@ -48,6 +48,10 @@ class YtMusicApp(App):
         color: $text; padding: 0 1;
     }
     #status-bar {
+        dock: bottom; height: 1; background: $panel;
+        color: $text;
+    }
+    #footer {
         dock: bottom; height: 1; background: $boost;
         color: $text-disabled;
     }
@@ -108,12 +112,12 @@ class YtMusicApp(App):
         self._bus.subscribe(NeedStreamUrlEvent, self._on_need_stream_url)
 
         self._screens: dict[str, Screen] = {}
-        self._switching = False
 
     def compose(self) -> ComposeResult:
         yield Container(id="screen-container")
         yield NowPlayingBar()
         yield StatusBar()
+        yield Footer()
 
     async def on_mount(self) -> None:
         ensure_dirs()
@@ -284,18 +288,15 @@ class YtMusicApp(App):
         await self.push_screen(HelpScreen())
 
     async def _switch_screen(self, name: str) -> None:
-        if self._switching:
-            return
         screen = self._screens.get(name)
         if screen is None or self.screen is screen:
             return
-        self._switching = True
         try:
-            await self.switch_screen(screen)
+            await asyncio.wait_for(self.switch_screen(screen), timeout=2.0)
+        except asyncio.TimeoutError:
+            pass
         except Exception:
             pass
-        finally:
-            self._switching = False
 
 
 def main() -> None:

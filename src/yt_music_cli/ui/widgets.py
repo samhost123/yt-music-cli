@@ -75,22 +75,27 @@ class NowPlayingBar(Static):
 
 
 class StatusBar(Static):
-    """Bottom bar showing keybinding hints and status messages."""
+    """Bottom bar showing temporary status messages."""
 
     def __init__(self) -> None:
         super().__init__("", id="status-bar")
         self._message: str = ""
-        self._hint: str = "?:help  q:quit  /:search  Space:play/pause  n:next  p:prev  Tab:view"
 
     def set_message(self, msg: str) -> None:
         self._message = msg
         self.refresh()
 
-    def clear_message(self) -> None:
-        self._message = ""
-        self.refresh()
-
     def render(self) -> str:
         if self._message:
             return f"  {self._message}"
-        return f"  {self._hint}"
+        return ""
+
+
+class Footer(Static):
+    """Persistent footer showing keybinding hints on every screen."""
+
+    def __init__(self) -> None:
+        super().__init__("", id="footer")
+
+    def render(self) -> str:
+        return " q:Quit  /:Search  Space:Pause  n/p:Skip  ←/→:Seek  +/-:Vol  1-5:Views  Tab:Switch  ?:Help  s:Shuffle  r:Repeat"
