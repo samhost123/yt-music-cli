@@ -159,9 +159,9 @@ class YtMusicApp(App):
         self._update_now_playing_bar(state)
         try:
             np_screen = self._screens.get("now_playing")
-            if np_screen and np_screen.is_mounted:
+            if np_screen:
                 np_screen.update_track(event.track, state.is_playing, state.position_s, state.duration_s,
-                                    state.volume, state.shuffle, state.repeat)
+                                       state.volume, state.shuffle, state.repeat)
         except Exception:
             pass
         self._status_msg(f"Now playing: {event.track.title}")
@@ -269,9 +269,8 @@ class YtMusicApp(App):
     def action_view_now_playing(self) -> None:
         self._switch_screen("now_playing")
 
-    def action_show_help(self) -> None:
-        help_screen = HelpScreen()
-        asyncio.create_task(self.push_screen(help_screen))
+    async def action_show_help(self) -> None:
+        await self.push_screen(HelpScreen())
 
     def _set_persistent_status(self, msg: str) -> None:
         try:

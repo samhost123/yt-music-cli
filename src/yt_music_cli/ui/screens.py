@@ -353,35 +353,52 @@ class NowPlayingScreen(Screen):
         self._shuffle = shuffle
         self._repeat = repeat
 
-        if track is None:
+        if not self.is_mounted:
+            return
+
+        self._render_track()
+        self._render_progress()
+        self._render_flags()
+        self._render_volume()
+        self._render_controls()
+
+    def on_mount(self) -> None:
+        self._render_all()
+
+    def _render_all(self) -> None:
+        self._render_track()
+        self._render_progress()
+        self._render_flags()
+        self._render_volume()
+        self._render_controls()
+
+    def _render_track(self) -> None:
+        if self._track is None:
             self.query_one("#np-art", Static).update("")
             self.query_one("#np-title", Static).update("No track playing")
             self.query_one("#np-artist", Static).update("")
-            self.query_one("#np-progress", Static).update("")
-            self.query_one("#np-flags", Static).update("")
-            self.query_one("#np-volume", Static).update("")
-            self.query_one("#np-controls", Static).update("")
             return
-
         art = ""
-        if track.thumbnail_url:
-            art = render_album_art(track.thumbnail_url, 40, 12)
+        if self._track.thumbnail_url:
+            art = render_album_art(self._track.thumbnail_url, 40, 12)
         self.query_one("#np-art", Static).update(art if art else "")
-        self.query_one("#np-title", Static).update(f"  [bold]{track.title}[/bold]")
+        self.query_one("#np-title", Static).update(f"  [bold]{self._track.title}[/bold]")
         self.query_one("#np-artist", Static).update(
-            f"  {track.artist_string}" + (f"  —  {track.album}" if track.album else "")
+            f"  {self._track.artist_string}" + (f"  —  {self._track.album}" if self._track.album else "")
         )
 
-        if duration_s > 0:
-            ratio = position_s / duration_s
+    def _render_progress(self) -> None:
+        if self._duration_s > 0:
+            ratio = self._position_s / self._duration_s
             filled = int(ratio * 40)
             bar = "[" + "=" * max(0, filled - 1) + "\u25cf" + "-" * max(0, 40 - filled) + "]"
             self.query_one("#np-progress", Static).update(
-                f"  {bar}  {self._fmt(position_s)} / {self._fmt(duration_s)}"
+                f"  {bar}  {self._fmt(self._position_s)} / {self._fmt(self._duration_s)}"
             )
         else:
-            self.query_one("#np-progress", Static).update(f"  [{'\u00b7' * 40}]  0:00 / {self._fmt(duration_s)}")
+            self.query_one("#np-progress", Static).update(f"  [{'\u00b7' * 40}]  0:00 / {self._fmt(self._duration_s)}")
 
+    def _render_flags(self) -> None:
         flags = []
         if self._shuffle:
             flags.append("\U0001f500 Shuffle")
@@ -391,10 +408,12 @@ class NowPlayingScreen(Screen):
             flags.append("\U0001f501 Repeat All")
         self.query_one("#np-flags", Static).update("  " + "  |  ".join(flags) if flags else "")
 
+    def _render_volume(self) -> None:
         vol_filled = int(self._volume / 100 * 20)
         vol_bar = "[" + "\u25ac" * vol_filled + "\u2500" * (20 - vol_filled) + "]"
         self.query_one("#np-volume", Static).update(f"  Vol: {vol_bar} {self._volume}%")
 
+    def _render_controls(self) -> None:
         self.query_one("#np-controls", Static).update(
             "  Space:Pause  n/p:Skip  \u2190/\u2192:Seek  +/-:Vol"
         )
