@@ -21,3 +21,4 @@ class Keys:
     VIEW_4 = "4"
     VIEW_5 = "5"
     LOGIN = "l"
+    HELP = "?"

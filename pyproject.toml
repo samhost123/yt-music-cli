@@ -11,6 +11,8 @@ dependencies = [
     "textual>=0.50.0",
     "ytmusicapi>=1.7.0",
     "python-mpv>=1.0.0",
+    "Pillow>=10.0",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]

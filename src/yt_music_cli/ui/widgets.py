@@ -14,8 +14,10 @@ class NowPlayingBar(Static):
         self._volume: int = 100
         self._shuffle: bool = False
         self._repeat: str = "off"
+        self._flash_vol: int | None = None
 
     def update_state(self, state: PlaybackState) -> None:
+        prev_volume = self._volume
         self._track = state.track
         self._is_playing = state.is_playing
         self._position_s = state.position_s
@@ -24,8 +26,18 @@ class NowPlayingBar(Static):
         self._shuffle = state.shuffle
         self._repeat = state.repeat
         self.refresh()
+        if prev_volume != self._volume:
+            self._flash_vol = self._volume
+            self.set_timer(1.5, self._clear_volume_flash)
+
+    def _clear_volume_flash(self) -> None:
+        self._flash_vol = None
+        self.refresh()
 
     def render(self) -> str:
+        if self._flash_vol is not None:
+            return f"  \U0001f50a Vol: {self._flash_vol}%"
+
         if not self._track:
             return "  No track playing"
 
@@ -68,7 +80,7 @@ class StatusBar(Static):
     def __init__(self) -> None:
         super().__init__("", id="status-bar")
         self._message: str = ""
-        self._hint: str = "q:quit  /:search  Space:play/pause  n:next  p:prev  Tab:view"
+        self._hint: str = "?:help  q:quit  /:search  Space:play/pause  n:next  p:prev  Tab:view"
 
     def set_message(self, msg: str) -> None:
         self._message = msg

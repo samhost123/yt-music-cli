@@ -33,6 +33,7 @@ from yt_music_cli.ui.screens import (
     PlaylistScreen,
     QueueScreen,
     NowPlayingScreen,
+    HelpScreen,
 )
 from yt_music_cli.ui.keys import Keys
 
@@ -59,10 +60,14 @@ class YtMusicApp(App):
     .tab { width: auto; padding: 0 2; }
     #playlist-list { width: 30%; }
     #playlist-tracks { width: 70%; }
-    #np-title { content-align: center middle; text-style: bold; height: 3; }
+    #np-art { content-align: center middle; height: 13; }
+    #np-title { content-align: center middle; height: 3; }
     #np-artist { content-align: center middle; height: 2; }
     #np-progress { content-align: center middle; height: 3; }
-    #np-details { content-align: center middle; height: 2; }
+    #np-flags { content-align: center middle; height: 2; color: $warning; }
+    #np-volume { content-align: center middle; height: 2; }
+    #np-controls { content-align: center middle; height: 2; color: $text-disabled; }
+    #help-text { padding: 2 4; }
     """
 
     BINDINGS = [
@@ -81,6 +86,7 @@ class YtMusicApp(App):
         (Keys.VIEW_3, "view_playlists", "Playlists"),
         (Keys.VIEW_4, "view_queue", "Queue"),
         (Keys.VIEW_5, "view_now_playing", "Now Playing"),
+        (Keys.HELP, "show_help", "Help"),
     ]
 
     def __init__(self) -> None:
@@ -154,7 +160,8 @@ class YtMusicApp(App):
         try:
             np_screen = self._screens.get("now_playing")
             if np_screen and np_screen.is_mounted:
-                np_screen.update_track(event.track, state.is_playing, state.position_s, state.duration_s)
+                np_screen.update_track(event.track, state.is_playing, state.position_s, state.duration_s,
+                                    state.volume, state.shuffle, state.repeat)
         except Exception:
             pass
         self._status_msg(f"Now playing: {event.track.title}")
@@ -261,6 +268,10 @@ class YtMusicApp(App):
 
     def action_view_now_playing(self) -> None:
         self._switch_screen("now_playing")
+
+    def action_show_help(self) -> None:
+        help_screen = HelpScreen()
+        asyncio.create_task(self.push_screen(help_screen))
 
     def _set_persistent_status(self, msg: str) -> None:
         try:

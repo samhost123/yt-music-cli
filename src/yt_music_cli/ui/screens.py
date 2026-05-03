@@ -14,6 +14,7 @@ from yt_music_cli.events import (
     QueueUpdatedEvent,
 )
 from yt_music_cli.bus import MessageBus
+from yt_music_cli.ui.art import render_album_art
 
 
 class SearchScreen(Screen):
@@ -58,7 +59,8 @@ class SearchScreen(Screen):
             return
         self.query_one("#search-status", Static).update(f"  {len(event.results)} results for '{event.query}'")
         for track in event.results:
-            item = ListItem(Label(f"  {track.title}  —  {track.artist_string}  [{track.duration_str}]"))
+            album_part = f"  —  [{track.album}]" if track.album else ""
+            item = ListItem(Label(f"  {track.title} - {track.artist_string}{album_part}  [{track.duration_str}]"))
             item.track = track
             list_view.append(item)
 
@@ -294,34 +296,82 @@ class QueueScreen(Screen):
             pass  # handled by app-level keybindings
 
 
+class HelpScreen(Screen):
+    BINDINGS = [("escape", "dismiss", "Close")]
+
+    def compose(self) -> ComposeResult:
+        help_text = """\
+  Keybindings
+  ───────────
+  /          Focus search
+  Enter      Play selected track
+  Space      Play / Pause
+  n / p      Next / Previous track
+  ← / →      Seek backward / forward
+  + / -      Volume up / down
+  s          Toggle shuffle
+  r          Toggle repeat (off → one → all)
+  a          Add to queue
+  d          Remove from queue/playlist
+  1-5        Jump to view (Search/Library/Playlists/Queue/Now Playing)
+  Tab        Cycle views
+  ?          This help
+  q          Quit"""
+        yield Static(help_text, id="help-text")
+
+
 class NowPlayingScreen(Screen):
     BINDINGS = [("escape", "dismiss", "Back")]
 
     def __init__(self) -> None:
         super().__init__()
         self._track: Track | None = None
+        self._is_playing: bool = False
+        self._position_s: float = 0.0
+        self._duration_s: float = 0.0
+        self._volume: int = 100
+        self._shuffle: bool = False
+        self._repeat: str = "off"
 
     def compose(self) -> ComposeResult:
-        yield Static("", id="np-art-placeholder")
+        yield Static("", id="np-art")
         yield Static("No track playing", id="np-title")
         yield Static("", id="np-artist")
         yield Static("", id="np-progress")
-        yield Static("", id="np-details")
+        yield Static("", id="np-flags")
+        yield Static("", id="np-volume")
+        yield Static("", id="np-controls")
 
     def update_track(self, track: Track | None, is_playing: bool = False,
-                     position_s: float = 0.0, duration_s: float = 0.0) -> None:
+                     position_s: float = 0.0, duration_s: float = 0.0,
+                     volume: int = 100, shuffle: bool = False, repeat: str = "off") -> None:
         self._track = track
+        self._is_playing = is_playing
+        self._position_s = position_s
+        self._duration_s = duration_s
+        self._volume = volume
+        self._shuffle = shuffle
+        self._repeat = repeat
+
         if track is None:
+            self.query_one("#np-art", Static).update("")
             self.query_one("#np-title", Static).update("No track playing")
             self.query_one("#np-artist", Static).update("")
             self.query_one("#np-progress", Static).update("")
-            self.query_one("#np-details", Static).update("")
+            self.query_one("#np-flags", Static).update("")
+            self.query_one("#np-volume", Static).update("")
+            self.query_one("#np-controls", Static).update("")
             return
 
-        self.query_one("#np-title", Static).update(f"  {track.title}")
+        art = ""
+        if track.thumbnail_url:
+            art = render_album_art(track.thumbnail_url, 40, 12)
+        self.query_one("#np-art", Static).update(art if art else "")
+        self.query_one("#np-title", Static).update(f"  [bold]{track.title}[/bold]")
         self.query_one("#np-artist", Static).update(
             f"  {track.artist_string}" + (f"  —  {track.album}" if track.album else "")
         )
+
         if duration_s > 0:
             ratio = position_s / duration_s
             filled = int(ratio * 40)
@@ -331,7 +381,23 @@ class NowPlayingScreen(Screen):
             )
         else:
             self.query_one("#np-progress", Static).update(f"  [{'\u00b7' * 40}]  0:00 / {self._fmt(duration_s)}")
-        self.query_one("#np-details", Static).update(f"  {'\u25b6' if is_playing else '\u23f8'}  {track.duration_str}")
+
+        flags = []
+        if self._shuffle:
+            flags.append("\U0001f500 Shuffle")
+        if self._repeat == "one":
+            flags.append("\U0001f502 Repeat One")
+        elif self._repeat == "all":
+            flags.append("\U0001f501 Repeat All")
+        self.query_one("#np-flags", Static).update("  " + "  |  ".join(flags) if flags else "")
+
+        vol_filled = int(self._volume / 100 * 20)
+        vol_bar = "[" + "\u25ac" * vol_filled + "\u2500" * (20 - vol_filled) + "]"
+        self.query_one("#np-volume", Static).update(f"  Vol: {vol_bar} {self._volume}%")
+
+        self.query_one("#np-controls", Static).update(
+            "  Space:Pause  n/p:Skip  \u2190/\u2192:Seek  +/-:Vol"
+        )
 
     @staticmethod
     def _fmt(seconds: float) -> str:
