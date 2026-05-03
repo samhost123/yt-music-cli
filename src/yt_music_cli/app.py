@@ -280,13 +280,12 @@ class YtMusicApp(App):
 
     def action_toggle_shuffle(self) -> None:
         self._player.toggle_shuffle()
-        self.notify(f"Shuffle: {'on' if self._player.shuffle else 'off'}", timeout=1.5)
-        self._status_msg(f"Shuffle: {'on' if self._player.shuffle else 'off'}")
+        state = "on" if self._player.shuffle else "off"
+        self.notify(f"Shuffle: {state}", timeout=1.5)
 
     def action_toggle_repeat(self) -> None:
         self._player.toggle_repeat()
         self.notify(f"Repeat: {self._player.repeat}", timeout=1.5)
-        self._status_msg(f"Repeat: {self._player.repeat}")
 
     async def action_view_search(self) -> None:
         await self._switch_screen("search")
@@ -312,6 +311,12 @@ class YtMusicApp(App):
             return
         try:
             await asyncio.wait_for(self.switch_screen(screen), timeout=2.0)
+            if name == "queue":
+                queue = self._player.queue
+                await self._bus.publish(QueueUpdatedEvent(
+                    queue=[item.track for item in queue],
+                    current_index=self._player._current_index,
+                ))
         except asyncio.TimeoutError:
             pass
         except Exception:
