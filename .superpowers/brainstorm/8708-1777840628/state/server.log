@@ -1,0 +1,7 @@
+{"type":"server-started","port":56492,"host":"127.0.0.1","url_host":"localhost","url":"http://localhost:56492","screen_dir":"/home/sam/Documents/Yt_music_cli/.superpowers/brainstorm/8708-1777840628/content","state_dir":"/home/sam/Documents/Yt_music_cli/.superpowers/brainstorm/8708-1777840628/state"}
+{"type":"screen-added","file":"/home/sam/Documents/Yt_music_cli/.superpowers/brainstorm/8708-1777840628/content/architecture.html"}
+{"type":"screen-added","file":"/home/sam/Documents/Yt_music_cli/.superpowers/brainstorm/8708-1777840628/content/dataflow.html"}
+{"type":"screen-added","file":"/home/sam/Documents/Yt_music_cli/.superpowers/brainstorm/8708-1777840628/content/ui-layout.html"}
+{"type":"screen-added","file":"/home/sam/Documents/Yt_music_cli/.superpowers/brainstorm/8708-1777840628/content/auth-errors.html"}
+{"type":"screen-added","file":"/home/sam/Documents/Yt_music_cli/.superpowers/brainstorm/8708-1777840628/content/waiting.html"}
+{"type":"server-stopped","reason":"idle timeout"}
