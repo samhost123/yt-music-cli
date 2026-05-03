@@ -254,38 +254,29 @@ class YtMusicApp(App):
         self._player.toggle_repeat()
         self._status_msg(f"Repeat: {self._player.repeat}")
 
-    def action_view_search(self) -> None:
-        self._switch_screen("search")
+    async def action_view_search(self) -> None:
+        await self._switch_screen("search")
 
-    def action_view_library(self) -> None:
-        self._switch_screen("library")
+    async def action_view_library(self) -> None:
+        await self._switch_screen("library")
 
-    def action_view_playlists(self) -> None:
-        self._switch_screen("playlists")
+    async def action_view_playlists(self) -> None:
+        await self._switch_screen("playlists")
 
-    def action_view_queue(self) -> None:
-        self._switch_screen("queue")
+    async def action_view_queue(self) -> None:
+        await self._switch_screen("queue")
 
-    def action_view_now_playing(self) -> None:
-        self._switch_screen("now_playing")
+    async def action_view_now_playing(self) -> None:
+        await self._switch_screen("now_playing")
 
     async def action_show_help(self) -> None:
         await self.push_screen(HelpScreen())
 
-    def _set_persistent_status(self, msg: str) -> None:
-        try:
-            bar = self.query_one("#status-bar", StatusBar)
-            bar._message = msg
-            bar._hint = msg
-            bar.refresh()
-        except Exception:
-            pass
-
-    def _switch_screen(self, name: str) -> None:
+    async def _switch_screen(self, name: str) -> None:
         screen = self._screens.get(name)
         if screen is None or self.screen is screen:
             return
-        asyncio.create_task(self.switch_screen(screen))
+        await self.switch_screen(screen)
 
 
 def main() -> None:
