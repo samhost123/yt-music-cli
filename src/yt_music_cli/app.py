@@ -116,10 +116,6 @@ class YtMusicApp(App):
         self._screens["queue"] = QueueScreen(self._bus)
         self._screens["now_playing"] = NowPlayingScreen()
 
-        await self.push_screen(self._screens["now_playing"])
-        await self.push_screen(self._screens["queue"])
-        await self.push_screen(self._screens["playlists"])
-        await self.push_screen(self._screens["library"])
         await self.push_screen(self._screens["search"])
 
         await self._auth.initialize()
@@ -261,9 +257,9 @@ class YtMusicApp(App):
 
     def _switch_screen(self, name: str) -> None:
         screen = self._screens.get(name)
-        if screen is None or self.screen == screen:
+        if screen is None or self.screen is screen:
             return
-        asyncio.create_task(self.push_screen(screen))
+        asyncio.create_task(self.switch_screen(screen))
 
 
 def main() -> None:
