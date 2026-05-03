@@ -80,6 +80,7 @@ class YtMusicApp(App):
         (Keys.VIEW_3, "view_playlists", "Playlists"),
         (Keys.VIEW_4, "view_queue", "Queue"),
         (Keys.VIEW_5, "view_now_playing", "Now Playing"),
+        (Keys.LOGIN, "login", "Login"),
     ]
 
     def __init__(self) -> None:
@@ -129,7 +130,7 @@ class YtMusicApp(App):
             self._api.set_client(self._auth.client)
 
     async def _on_auth_error(self, event: AuthErrorEvent) -> None:
-        self._status_msg(f"Auth error: {event.error_msg}")
+        self._set_persistent_status(f"Not authenticated — press 'l' to login")
 
     async def _on_search_results(self, event: SearchResultsEvent) -> None:
         search_screen = self._screens.get("search")
@@ -244,6 +245,19 @@ class YtMusicApp(App):
 
     def action_view_now_playing(self) -> None:
         self._switch_screen("now_playing")
+
+    def action_login(self) -> None:
+        self._status_msg("Opening browser for authentication...")
+        asyncio.create_task(self._auth.start_oauth())
+
+    def _set_persistent_status(self, msg: str) -> None:
+        try:
+            bar = self.query_one("#status-bar", StatusBar)
+            bar._message = msg
+            bar._hint = msg
+            bar.refresh()
+        except Exception:
+            pass
 
     def _switch_screen(self, name: str) -> None:
         screen = self._screens.get(name)
