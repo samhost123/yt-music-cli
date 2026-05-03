@@ -8,7 +8,7 @@ from textual.containers import Container
 from textual.screen import Screen
 
 from yt_music_cli.bus import MessageBus
-from yt_music_cli.config import OAUTH_FILE, ensure_dirs, ERROR_LOG
+from yt_music_cli.config import AUTH_FILE, ensure_dirs, ERROR_LOG
 from yt_music_cli.models import Track, PlaybackState
 from yt_music_cli.auth import AuthModule
 from yt_music_cli.api import APIClient
@@ -80,13 +80,12 @@ class YtMusicApp(App):
         (Keys.VIEW_3, "view_playlists", "Playlists"),
         (Keys.VIEW_4, "view_queue", "Queue"),
         (Keys.VIEW_5, "view_now_playing", "Now Playing"),
-        (Keys.LOGIN, "login", "Login"),
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self._bus = MessageBus()
-        self._auth = AuthModule(self._bus, oauth_path=OAUTH_FILE)
+        self._auth = AuthModule(self._bus, auth_path=AUTH_FILE)
         self._api = APIClient(self._bus)
         self._player = PlayerModule(self._bus)
 
@@ -126,7 +125,7 @@ class YtMusicApp(App):
             self._api.set_client(self._auth.client)
 
     async def _on_auth_error(self, event: AuthErrorEvent) -> None:
-        self._set_persistent_status(f"Not authenticated — press 'l' to login")
+        self._set_persistent_status("Not authenticated — run 'yt-music-cli --setup' in terminal first")
 
     async def _on_search_results(self, event: SearchResultsEvent) -> None:
         search_screen = self._screens.get("search")
@@ -242,10 +241,6 @@ class YtMusicApp(App):
     def action_view_now_playing(self) -> None:
         self._switch_screen("now_playing")
 
-    def action_login(self) -> None:
-        self._status_msg("Opening browser for authentication...")
-        asyncio.create_task(self._auth.start_oauth())
-
     def _set_persistent_status(self, msg: str) -> None:
         try:
             bar = self.query_one("#status-bar", StatusBar)
@@ -263,6 +258,20 @@ class YtMusicApp(App):
 
 
 def main() -> None:
+    if "--setup" in sys.argv:
+        print("Running setup...")
+        print("1. Open music.youtube.com in your browser and sign in")
+        print("2. Open DevTools (F12) → Network tab")
+        print("3. Find any request to music.youtube.com")
+        print("4. Right-click → Copy → Copy as cURL (bash)")
+        print("5. Paste the copied text below:\n")
+        from yt_music_cli.config import AUTH_FILE, ensure_dirs
+        ensure_dirs()
+        from ytmusicapi.setup import setup as ytm_setup
+        ytm_setup(filepath=str(AUTH_FILE))
+        print(f"\nCredentials saved to {AUTH_FILE}. You can now run 'yt-music-cli'.")
+        return
+
     import os
     os.environ.setdefault("TEXTUAL", "1")
     logging.basicConfig(

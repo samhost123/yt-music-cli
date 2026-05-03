@@ -19,6 +19,7 @@ def _xdg_data_home() -> Path:
 CONFIG_DIR = _xdg_config_home() / "yt-music-cli"
 DATA_DIR = _xdg_data_home() / "yt-music-cli"
 OAUTH_FILE = CONFIG_DIR / "oauth.json"
+AUTH_FILE = CONFIG_DIR / "headers.json"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
 ERROR_LOG = DATA_DIR / "errors.log"
 CACHE_DIR = DATA_DIR / "cache"
