@@ -8,4 +8,13 @@ build/
 .coverage
 htmlcov/
 *.so
-.env
+.env*
+headers.json
+oauth.json
+*.log
+*.session
+*credential*
+*token*
+*secret*
+*oauth*
+.superpowers/
