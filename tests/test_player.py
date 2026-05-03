@@ -5,8 +5,6 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from yt_music_cli.bus import MessageBus
 from yt_music_cli.player import PlayerModule
 from yt_music_cli.events import (
-    PlayRequestEvent,
-    TrackChangedEvent,
     QueueUpdatedEvent,
     ErrorEvent,
 )
@@ -37,20 +35,11 @@ def player(bus, mock_mpv, sample_track):
 
 
 @pytest.mark.asyncio
-async def test_play_request_adds_to_queue_and_plays(player, sample_track):
+async def test_add_to_queue_and_play(player, sample_track):
     bus, player_module = player
-    track_events = []
-
-    async def capture(event):
-        track_events.append(event)
-
-    bus.subscribe(TrackChangedEvent, capture)
-
-    await bus.publish(PlayRequestEvent(track=sample_track, context="test"))
-    await asyncio.sleep(0)
-
-    assert len(track_events) == 1
-    assert track_events[0].track.id == sample_track.id
+    player_module.add_to_queue(sample_track, source="test")
+    assert len(player_module.queue) == 1
+    assert player_module.queue[0].track.id == sample_track.id
 
 
 @pytest.mark.asyncio

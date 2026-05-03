@@ -4,7 +4,6 @@ from typing import Optional
 
 from yt_music_cli.bus import MessageBus
 from yt_music_cli.events import (
-    PlayRequestEvent,
     TrackChangedEvent,
     QueueUpdatedEvent,
     ErrorEvent,
@@ -32,8 +31,6 @@ class PlayerModule:
         self._shuffle: bool = False
         self._repeat: str = "off"
         self._lock = asyncio.Lock()
-
-        bus.subscribe(PlayRequestEvent, self._on_play_request)
 
     @property
     def queue(self) -> list[QueueItem]:
@@ -107,10 +104,6 @@ class PlayerModule:
         track = self.current_track
         if not track:
             return
-
-    async def _on_play_request(self, event: PlayRequestEvent) -> None:
-        self.add_to_queue(event.track, source=event.context)
-        await self._bus.publish(TrackChangedEvent(track=event.track))
 
     def _publish_queue_update(self) -> None:
         try:
