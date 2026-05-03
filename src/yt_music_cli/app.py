@@ -108,6 +108,7 @@ class YtMusicApp(App):
         self._bus.subscribe(NeedStreamUrlEvent, self._on_need_stream_url)
 
         self._screens: dict[str, Screen] = {}
+        self._switching = False
 
     def compose(self) -> ComposeResult:
         yield Container(id="screen-container")
@@ -283,10 +284,18 @@ class YtMusicApp(App):
         await self.push_screen(HelpScreen())
 
     async def _switch_screen(self, name: str) -> None:
+        if self._switching:
+            return
         screen = self._screens.get(name)
         if screen is None or self.screen is screen:
             return
-        await self.switch_screen(screen)
+        self._switching = True
+        try:
+            await self.switch_screen(screen)
+        except Exception:
+            pass
+        finally:
+            self._switching = False
 
 
 def main() -> None:

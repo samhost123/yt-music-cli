@@ -91,13 +91,15 @@ class LibraryScreen(Screen):
         yield ListView(id="library-list")
         yield Static("Loading...", id="library-status")
 
-    async def on_mount(self) -> None:
+    def on_mount(self) -> None:
         if self._loaded:
             return
         self._loaded = True
-        await self._load_library()
+        asyncio.create_task(self._load_library())
 
     async def _load_library(self) -> None:
+        if not self.is_mounted:
+            return
         try:
             self._songs = await self._api.get_library_songs()
         except Exception:
@@ -129,6 +131,8 @@ class LibraryScreen(Screen):
         self._show_tab()
 
     def _show_tab(self) -> None:
+        if not self.is_mounted:
+            return
         list_view = self.query_one("#library-list", ListView)
         list_view.clear()
 
@@ -163,6 +167,8 @@ class LibraryScreen(Screen):
                 list_view.append(ListItem(Label("  No playlists in library")))
 
     async def on_library_update(self, event: LibraryUpdateEvent) -> None:
+        if not self.is_mounted:
+            return
         if event.category == "songs":
             self._songs = event.items
         elif event.category == "playlists":
@@ -197,13 +203,15 @@ class PlaylistScreen(Screen):
             yield ListView(id="playlist-tracks")
         yield Static("Select a playlist to view tracks", id="playlist-status")
 
-    async def on_mount(self) -> None:
+    def on_mount(self) -> None:
         if self._loaded:
             return
         self._loaded = True
-        await self._load_playlists()
+        asyncio.create_task(self._load_playlists())
 
     async def _load_playlists(self) -> None:
+        if not self.is_mounted:
+            return
         try:
             self._playlists = await self._api.get_library_playlists()
         except Exception:
@@ -211,6 +219,8 @@ class PlaylistScreen(Screen):
         self._show_playlists()
 
     def _show_playlists(self) -> None:
+        if not self.is_mounted:
+            return
         list_view = self.query_one("#playlist-list", ListView)
         list_view.clear()
         if not self._playlists:
@@ -225,6 +235,8 @@ class PlaylistScreen(Screen):
         )
 
     async def _load_tracks(self, playlist_id: str) -> None:
+        if not self.is_mounted:
+            return
         self.query_one("#playlist-status", Static).update("  Loading tracks...")
         try:
             self._tracks = await self._api.get_playlist_tracks(playlist_id)
@@ -241,6 +253,8 @@ class PlaylistScreen(Screen):
         self._show_tracks()
 
     def _show_tracks(self) -> None:
+        if not self.is_mounted:
+            return
         list_view = self.query_one("#playlist-tracks", ListView)
         list_view.clear()
         if not self._tracks:
@@ -278,6 +292,8 @@ class QueueScreen(Screen):
         yield Static("Queue is empty", id="queue-status")
 
     async def on_queue_updated(self, event: QueueUpdatedEvent) -> None:
+        if not self.is_mounted:
+            return
         tracks = event.queue
         list_view = self.query_one("#queue-list", ListView)
         list_view.clear()
