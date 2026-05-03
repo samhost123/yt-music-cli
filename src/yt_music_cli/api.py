@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 from ytmusicapi import YTMusic
 
@@ -10,7 +9,6 @@ from yt_music_cli.events import (
     AuthReadyEvent,
     ErrorEvent,
     LibraryUpdateEvent,
-    TrackChangedEvent,
 )
 from yt_music_cli.models import Track
 
@@ -60,7 +58,7 @@ class APIClient:
         self._ytmusic = ytmusic
 
     async def _on_auth_ready(self, event: AuthReadyEvent) -> None:
-        await self._bus.publish(LibraryUpdateEvent(category="songs", items=[]))
+        await self._bus.publish(LibraryUpdateEvent(category="tracks", items=[]))
         await self._bus.publish(LibraryUpdateEvent(category="albums", items=[]))
         await self._bus.publish(LibraryUpdateEvent(category="playlists", items=[]))
 

@@ -7,7 +7,6 @@ from yt_music_cli.player import PlayerModule
 from yt_music_cli.events import (
     PlayRequestEvent,
     TrackChangedEvent,
-    PlaybackStateEvent,
     QueueUpdatedEvent,
     ErrorEvent,
 )
@@ -25,8 +24,8 @@ def mock_mpv():
         mpv_instance = MagicMock()
         mpv_instance.pause = False
         mpv_instance.volume = 100
-        type(mpv_instance).time_pos = PropertyMock(return_value=10.0)
-        type(mpv_instance).duration = PropertyMock(return_value=210.0)
+        mpv_instance.time_pos = 10.0
+        mpv_instance.duration = 210.0
         mock.return_value = mpv_instance
         yield mpv_instance
 
@@ -34,9 +33,6 @@ def mock_mpv():
 @pytest.fixture
 def player(bus, mock_mpv, sample_track):
     player_module = PlayerModule(bus)
-    player_module._stream_urls[sample_track.id] = "https://example.com/test.mp3"
-    for i in range(1, 6):
-        player_module._stream_urls[f"track{i}"] = f"https://example.com/song{i}.mp3"
     return bus, player_module
 
 
@@ -58,32 +54,13 @@ async def test_play_request_adds_to_queue_and_plays(player, sample_track):
 
 
 @pytest.mark.asyncio
-async def test_play_request_unknown_id_publishes_error(player, mock_mpv):
-    bus, player_module = player
-    errors = []
-
-    async def capture(event):
-        errors.append(event)
-
-    bus.subscribe(ErrorEvent, capture)
-
-    unknown_track = Track(id="nonexistent", title="Unknown", artists=["Unknown"])
-    await bus.publish(PlayRequestEvent(track=unknown_track, context="test"))
-    await asyncio.sleep(0)
-
-    assert len(errors) == 1
-    assert errors[0].source == "player"
-    assert "nonexistent" in errors[0].message
-
-
-@pytest.mark.asyncio
 async def test_play_pause_toggles(player, mock_mpv):
     bus, player_module = player
-    type(mock_mpv).pause = PropertyMock(return_value=False)
+    mock_mpv.pause = False
 
     player_module._mpv = mock_mpv
     player_module.play_pause()
-    mock_mpv._set_property.assert_called_with("pause", True)
+    assert mock_mpv.pause is True
 
 
 @pytest.mark.asyncio
@@ -114,7 +91,7 @@ async def test_set_volume(player, mock_mpv):
     bus, player_module = player
     player_module._mpv = mock_mpv
     player_module.set_volume(50)
-    mock_mpv._set_property.assert_called_with("volume", 50)
+    assert mock_mpv.volume == 50
 
 
 @pytest.mark.asyncio
@@ -122,7 +99,7 @@ async def test_seek(player, mock_mpv):
     bus, player_module = player
     player_module._mpv = mock_mpv
     player_module.seek(30.0)
-    mock_mpv._set_property.assert_called_with("time-pos", 30.0)
+    assert mock_mpv.time_pos == 30.0
 
 
 @pytest.mark.asyncio

@@ -1,12 +1,11 @@
-import logging
 import asyncio
+import logging
 from typing import Optional
 
 from yt_music_cli.bus import MessageBus
 from yt_music_cli.events import (
     PlayRequestEvent,
     TrackChangedEvent,
-    PlaybackStateEvent,
     QueueUpdatedEvent,
     ErrorEvent,
 )
@@ -15,7 +14,7 @@ from yt_music_cli.models import Track, QueueItem, PlaybackState
 logger = logging.getLogger(__name__)
 
 
-def _mpv_safe() -> object:
+def _mpv_safe() -> object | None:
     try:
         from mpv import MPV
         return MPV
@@ -48,29 +47,24 @@ class PlayerModule:
 
     def add_to_queue(self, track: Track, source: str = "") -> None:
         self._queue.append(QueueItem(track=track, source=source))
-        try:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._bus.publish(QueueUpdatedEvent(
-                queue=[item.track for item in self._queue],
-                current_index=self._current_index,
-            )))
-        except RuntimeError:
-            pass
+        self._publish_queue_update()
 
     def remove_from_queue(self, index: int) -> None:
         if 0 <= index < len(self._queue):
             self._queue.pop(index)
             if self._current_index >= len(self._queue):
                 self._current_index = max(0, len(self._queue) - 1)
+            self._publish_queue_update()
 
     def clear_queue(self) -> None:
         self._queue.clear()
         self._current_index = 0
+        self._publish_queue_update()
 
     def play_pause(self) -> None:
         if self._mpv:
             try:
-                self._mpv._set_property("pause", not self._mpv.pause)
+                self._mpv.pause = not self._mpv.pause
             except Exception:
                 pass
 
@@ -78,23 +72,25 @@ class PlayerModule:
         if not self._queue:
             return
         self._current_index = (self._current_index + 1) % len(self._queue)
+        self._play_current()
 
     def prev_track(self) -> None:
         if not self._queue:
             return
         self._current_index = (self._current_index - 1) % len(self._queue)
+        self._play_current()
 
     def set_volume(self, volume: int) -> None:
         if self._mpv:
             try:
-                self._mpv._set_property("volume", max(0, min(100, volume)))
+                self._mpv.volume = max(0, min(100, volume))
             except Exception:
                 pass
 
     def seek(self, position_s: float) -> None:
         if self._mpv:
             try:
-                self._mpv._set_property("time-pos", position_s)
+                self._mpv.time_pos = position_s
             except Exception:
                 pass
 
@@ -113,14 +109,18 @@ class PlayerModule:
             return
 
     async def _on_play_request(self, event: PlayRequestEvent) -> None:
-        if event.track.id not in self._stream_urls:
-            await self._bus.publish(ErrorEvent(
-                source="player",
-                message=f"Track id '{event.track.id}' not found",
-            ))
-            return
         self.add_to_queue(event.track, source=event.context)
         await self._bus.publish(TrackChangedEvent(track=event.track))
+
+    def _publish_queue_update(self) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._bus.publish(QueueUpdatedEvent(
+                queue=[item.track for item in self._queue],
+                current_index=self._current_index,
+            )))
+        except RuntimeError:
+            pass
 
     def get_state(self) -> PlaybackState:
         track = self.current_track
