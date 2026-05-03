@@ -1,46 +1,75 @@
 # yt-music-cli
 
-Terminal-based YouTube Music client with OAuth authentication.
+A terminal client for YouTube Music. Search, browse your library, manage playlists, and play music — all from the command line.
 
-## Requirements
+Uses your own YouTube Music account so you get your subscription perks, recommendations, and library.
+
+## Dependencies
 
 - Python 3.11+
-- mpv (system package: `apt install mpv` or `brew install mpv`)
-- YouTube Music subscription
-
-## Install
+- mpv — for audio playback
+- yt-dlp — for stream resolution  
 
 ```bash
+# Debian/Ubuntu
+apt install mpv libmpv-dev yt-dlp
+
+# macOS
+brew install mpv yt-dlp
+```
+
+## Quick start
+
+```bash
+git clone https://github.com/YOUR_USER/yt-music-cli.git
+cd yt-music-cli
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-## Setup (first run)
+## Authentication
 
-1. Run `yt-music-cli`
-2. On first launch, the app will prompt for authentication
-3. A browser window will open — log in with your Google account
-4. Credentials are saved to `~/.config/yt-music-cli/oauth.json`
-
-## Controls
-
-| Key | Action |
-|-----|--------|
-| `/` | Focus search |
-| `Space` | Play / Pause |
-| `n` / `p` | Next / Previous track |
-| `←` / `→` | Seek backward / forward |
-| `+` / `-` | Volume up / down |
-| `Tab` | Cycle views |
-| `1`—`5` | Jump to view |
-| `s` | Toggle shuffle |
-| `r` | Toggle repeat |
-| `q` | Quit |
-
-## Run
+First run a one-time setup to grab your session headers:
 
 ```bash
-source .venv/bin/activate
+yt-music-cli --setup
+```
+
+Then:
+1. Open music.youtube.com in your browser and sign in
+2. Open DevTools (F12) → Network tab  
+3. Search for something to trigger API calls
+4. Find a request to `youtubei/v1/browse` or `youtubei/v1/search`
+5. Right-click → Copy → Copy Request Headers
+6. Paste into the terminal
+
+Credentials are saved to `~/.config/yt-music-cli/headers.json`. You only need to do this once — or if your session expires.
+
+## Usage
+
+```
 yt-music-cli
 ```
+
+| Key | What it does |
+|-----|-------------|
+| `/` | Jump to search, clear input |
+| `Enter` | Play selected track |
+| `Space` | Pause / resume |
+| `n` `p` | Next / previous track |
+| `h` `l` or `←` `→` | Seek backward / forward |
+| `+` `-` | Volume |
+| `j` `k` | Navigate lists |
+| `g` `G` | Jump to top / bottom of list |
+| `a` | Add to queue |
+| `d` | Remove from queue |
+| `s` | Shuffle |
+| `r` | Repeat (off → one → all) |
+| `1`–`5` | Jump to view: Search, Library, Playlists, Queue, Now Playing |
+| `?` | Show all keybindings |
+| `q` | Quit |
+
+## Tech
+
+Built with [Textual](https://github.com/Textualize/textual) for the TUI, [ytmusicapi](https://github.com/sigma67/ytmusicapi) for the API, and python-mpv for playback. Event-driven architecture so modules don't step on each other.
