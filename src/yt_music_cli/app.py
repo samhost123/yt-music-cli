@@ -177,6 +177,16 @@ class YtMusicApp(App):
             repeat=event.repeat,
         )
         self._update_now_playing_bar(state)
+        try:
+            np_screen = self._screens.get("now_playing")
+            if np_screen:
+                np_screen.update_track(
+                    self._player.current_track,
+                    event.is_playing, event.position_s, event.duration_s,
+                    event.volume, event.shuffle, event.repeat,
+                )
+        except Exception:
+            pass
 
     async def _on_queue_updated(self, event: QueueUpdatedEvent) -> None:
         try:
