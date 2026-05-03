@@ -71,13 +71,15 @@ class LibraryScreen(Screen):
         ("3", "tab_playlists", "Playlists"),
     ]
 
-    def __init__(self, bus: MessageBus) -> None:
+    def __init__(self, bus: MessageBus, api: object) -> None:
         super().__init__()
         self._bus = bus
+        self._api = api
         self._current_tab = "songs"
-        self._songs: list = []
+        self._songs: list[Track] = []
         self._albums: list = []
-        self._playlists: list = []
+        self._playlists: list[Playlist] = []
+        self._loaded = False
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="library-tabs"):
@@ -86,6 +88,31 @@ class LibraryScreen(Screen):
             yield Static("[Playlists]", classes="tab")
         yield ListView(id="library-list")
         yield Static("Loading...", id="library-status")
+
+    async def on_mount(self) -> None:
+        if self._loaded:
+            return
+        self._loaded = True
+        await self._load_library()
+
+    async def _load_library(self) -> None:
+        try:
+            self._songs = await self._api.get_library_songs()
+        except Exception:
+            self._songs = []
+        try:
+            self._albums = await self._api.get_library_albums()
+        except Exception:
+            self._albums = []
+        try:
+            self._playlists = await self._api.get_library_playlists()
+        except Exception:
+            self._playlists = []
+
+        self.query_one("#library-status", Static).update(
+            f"  Songs: {len(self._songs)}  |  Albums: {len(self._albums)}  |  Playlists: {len(self._playlists)}"
+        )
+        self._show_tab()
 
     def action_tab_songs(self) -> None:
         self._current_tab = "songs"
@@ -102,26 +129,65 @@ class LibraryScreen(Screen):
     def _show_tab(self) -> None:
         list_view = self.query_one("#library-list", ListView)
         list_view.clear()
-        items = {
-            "songs": self._songs,
-            "albums": self._albums,
-            "playlists": self._playlists,
-        }.get(self._current_tab, [])
-        for item in items[:200]:
-            list_view.append(ListItem(Label(f"  {item}")))
+
+        if self._current_tab == "songs":
+            for track in self._songs[:200]:
+                item = ListItem(Label(f"  {track.title}  —  {track.artist_string}  [{track.duration_str}]"))
+                item.track = track
+                list_view.append(item)
+            if not self._songs:
+                list_view.append(ListItem(Label("  No songs in library")))
+        elif self._current_tab == "albums":
+            if self._albums:
+                for album in self._albums[:200]:
+                    title = album.get("title", "Unknown Album")
+                    artists = album.get("artists", "Unknown Artist")
+                    if isinstance(artists, list):
+                        artists = ", ".join(a.get("name", "?") for a in artists)
+                    elif isinstance(artists, str):
+                        pass
+                    else:
+                        artists = str(artists)
+                    item = ListItem(Label(f"  {title}  —  {artists}"))
+                    list_view.append(item)
+            else:
+                list_view.append(ListItem(Label("  Albums coming soon")))
+        elif self._current_tab == "playlists":
+            for pl in self._playlists[:200]:
+                item = ListItem(Label(f"  {pl.title}  ({pl.track_count} tracks)"))
+                item.playlist = pl
+                list_view.append(item)
+            if not self._playlists:
+                list_view.append(ListItem(Label("  No playlists in library")))
 
     async def on_library_update(self, event: LibraryUpdateEvent) -> None:
-        self.query_one("#library-status", Static).update(f"  {len(event.items)} items loaded")
+        if event.category == "songs":
+            self._songs = event.items
+        elif event.category == "playlists":
+            self._playlists = event.items
+        self.query_one("#library-status", Static).update(
+            f"  Songs: {len(self._songs)}  |  Albums: {len(self._albums)}  |  Playlists: {len(self._playlists)}"
+        )
+        self._show_tab()
+
+    async def on_list_view_selected(self, event: ListView.Selected) -> None:
+        if event.item is not None:
+            if hasattr(event.item, "track"):
+                await self._bus.publish(PlayRequestEvent(track=event.item.track, context="library"))
+            elif hasattr(event.item, "playlist"):
+                pass  # Could navigate to playlist in future
 
 
 class PlaylistScreen(Screen):
     BINDINGS = [("escape", "dismiss", "Back")]
 
-    def __init__(self, bus: MessageBus) -> None:
+    def __init__(self, bus: MessageBus, api: object) -> None:
         super().__init__()
         self._bus = bus
+        self._api = api
         self._playlists: list[Playlist] = []
         self._tracks: list[Track] = []
+        self._loaded = False
 
     def compose(self) -> ComposeResult:
         with Horizontal():
@@ -129,28 +195,69 @@ class PlaylistScreen(Screen):
             yield ListView(id="playlist-tracks")
         yield Static("Select a playlist to view tracks", id="playlist-status")
 
-    def show_playlists(self, playlists: list[Playlist]) -> None:
-        self._playlists = playlists
+    async def on_mount(self) -> None:
+        if self._loaded:
+            return
+        self._loaded = True
+        await self._load_playlists()
+
+    async def _load_playlists(self) -> None:
+        try:
+            self._playlists = await self._api.get_library_playlists()
+        except Exception:
+            self._playlists = []
+        self._show_playlists()
+
+    def _show_playlists(self) -> None:
         list_view = self.query_one("#playlist-list", ListView)
         list_view.clear()
-        for pl in playlists:
+        if not self._playlists:
+            list_view.append(ListItem(Label("  No playlists found")))
+            return
+        for pl in self._playlists:
             item = ListItem(Label(f"  {pl.title}  ({pl.track_count} tracks)"))
             item.playlist_id = pl.id
             list_view.append(item)
+        self.query_one("#playlist-status", Static).update(
+            f"  {len(self._playlists)} playlists  —  select one to view tracks"
+        )
+
+    async def _load_tracks(self, playlist_id: str) -> None:
+        self.query_one("#playlist-status", Static).update("  Loading tracks...")
+        try:
+            self._tracks = await self._api.get_playlist_tracks(playlist_id)
+        except Exception:
+            self._tracks = []
+        self._show_tracks()
+
+    def show_playlists(self, playlists: list[Playlist]) -> None:
+        self._playlists = playlists
+        self._show_playlists()
 
     def show_tracks(self, tracks: list[Track]) -> None:
         self._tracks = tracks
+        self._show_tracks()
+
+    def _show_tracks(self) -> None:
         list_view = self.query_one("#playlist-tracks", ListView)
         list_view.clear()
-        for track in tracks:
-            item = ListItem(Label(f"  {track.title}  —  {track.artist_string}"))
+        if not self._tracks:
+            list_view.append(ListItem(Label("  No tracks in this playlist")))
+            self.query_one("#playlist-status", Static).update("  0 tracks")
+            return
+        for track in self._tracks:
+            item = ListItem(Label(f"  {track.title}  —  {track.artist_string}  [{track.duration_str}]"))
             item.track = track
             list_view.append(item)
-        self.query_one("#playlist-status", Static).update(f"  {len(tracks)} tracks")
+        self.query_one("#playlist-status", Static).update(f"  {len(self._tracks)} tracks")
 
     async def on_list_view_selected(self, event: ListView.Selected) -> None:
-        if event.control.id == "playlist-tracks" and hasattr(event.item, "track"):
-            await self._bus.publish(PlayRequestEvent(track=event.item.track, context="playlist"))
+        if event.control.id == "playlist-list":
+            if event.item is not None and hasattr(event.item, "playlist_id"):
+                await self._load_tracks(event.item.playlist_id)
+        elif event.control.id == "playlist-tracks":
+            if event.item is not None and hasattr(event.item, "track"):
+                await self._bus.publish(PlayRequestEvent(track=event.item.track, context="playlist"))
 
 
 class QueueScreen(Screen):

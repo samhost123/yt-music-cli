@@ -110,8 +110,8 @@ class YtMusicApp(App):
         ensure_dirs()
 
         self._screens["search"] = SearchScreen(self._bus)
-        self._screens["library"] = LibraryScreen(self._bus)
-        self._screens["playlists"] = PlaylistScreen(self._bus)
+        self._screens["library"] = LibraryScreen(self._bus, self._api)
+        self._screens["playlists"] = PlaylistScreen(self._bus, self._api)
         self._screens["queue"] = QueueScreen(self._bus)
         self._screens["now_playing"] = NowPlayingScreen()
 

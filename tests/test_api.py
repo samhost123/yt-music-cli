@@ -125,7 +125,7 @@ async def test_library_fetch_on_auth_ready(api_client):
     await bus.publish(AuthReadyEvent())
     await asyncio.sleep(0)
 
-    assert len(lib_events) == 3  # songs, albums, playlists
+    assert len(lib_events) == 2  # songs, playlists
 
 
 @pytest.mark.asyncio
