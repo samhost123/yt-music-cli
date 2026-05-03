@@ -5,6 +5,7 @@ from typing import Optional
 from yt_music_cli.bus import MessageBus
 from yt_music_cli.events import (
     TrackChangedEvent,
+    PlaybackStateEvent,
     QueueUpdatedEvent,
     ErrorEvent,
 )
@@ -31,6 +32,7 @@ class PlayerModule:
         self._shuffle: bool = False
         self._repeat: str = "off"
         self._lock = asyncio.Lock()
+        self._progress_task: asyncio.Task | None = None
 
     @property
     def queue(self) -> list[QueueItem]:
@@ -100,11 +102,7 @@ class PlayerModule:
         if not self._mpv:
             mpv_cls = _mpv_safe()
             if mpv_cls is None:
-                loop = asyncio.get_running_loop()
-                loop.create_task(self._bus.publish(ErrorEvent(
-                    source="player",
-                    message="mpv is not installed. Install it with: apt install mpv libmpv-dev",
-                )))
+                self._publish_error("mpv is not installed. Install it with: apt install mpv libmpv-dev")
                 return
             self._mpv = mpv_cls(ytdl=True, video=False)
         self._play_current()
@@ -115,30 +113,54 @@ class PlayerModule:
             return
         url = self._stream_urls.get(track.id)
         if not url:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._bus.publish(ErrorEvent(
-                source="player",
-                message=f"No stream URL loaded for '{track.title}'. Try again.",
-            )))
+            self._publish_error(f"No stream URL loaded for '{track.title}'. Try again.")
             return
         try:
             self._mpv.play(url)
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._bus.publish(TrackChangedEvent(track=track)))
+            self._start_progress_reporting()
+            self._publish_event(TrackChangedEvent(track=track))
         except Exception as e:
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._bus.publish(ErrorEvent(
-                source="player",
-                message=f"Playback failed: {e}",
-            )))
+            self._publish_error(f"Playback failed: {e}")
 
-    def _publish_queue_update(self) -> None:
+    def _start_progress_reporting(self) -> None:
+        if self._progress_task and not self._progress_task.done():
+            self._progress_task.cancel()
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(self._bus.publish(QueueUpdatedEvent(
-                queue=[item.track for item in self._queue],
-                current_index=self._current_index,
-            )))
+            self._progress_task = loop.create_task(self._progress_loop())
+        except RuntimeError:
+            pass
+
+    async def _progress_loop(self) -> None:
+        while self._mpv:
+            try:
+                state = self.get_state()
+                if state.track:
+                    await self._bus.publish(PlaybackStateEvent(
+                        is_playing=state.is_playing,
+                        position_s=state.position_s,
+                        duration_s=state.duration_s,
+                        volume=state.volume,
+                        shuffle=state.shuffle,
+                        repeat=state.repeat,
+                    ))
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
+
+    def _publish_queue_update(self) -> None:
+        self._publish_event(QueueUpdatedEvent(
+            queue=[item.track for item in self._queue],
+            current_index=self._current_index,
+        ))
+
+    def _publish_error(self, msg: str) -> None:
+        self._publish_event(ErrorEvent(source="player", message=msg))
+
+    def _publish_event(self, event) -> None:
+        try:
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._bus.publish(event))
         except RuntimeError:
             pass
 
