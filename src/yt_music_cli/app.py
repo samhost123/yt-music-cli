@@ -140,11 +140,9 @@ class YtMusicApp(App):
             return
         self._player.add_to_queue(event.track, source=event.context)
 
-        # Fetch stream URL from API
-        if self._api._ytmusic:
-            url = await self._api.get_stream_url(event.track.id)
-            if url:
-                self._player.set_stream_url(event.track.id, url)
+        # Pass the YouTube video URL directly — mpv + yt-dlp handle the rest
+        url = f"https://music.youtube.com/watch?v={event.track.id}"
+        self._player.set_stream_url(event.track.id, url)
 
         self._player.play()
 

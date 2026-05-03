@@ -106,7 +106,7 @@ class PlayerModule:
                     message="mpv is not installed. Install it with: apt install mpv libmpv-dev",
                 )))
                 return
-            self._mpv = mpv_cls()
+            self._mpv = mpv_cls(ytdl=True, video=False)
         self._play_current()
 
     def _play_current(self) -> None:
